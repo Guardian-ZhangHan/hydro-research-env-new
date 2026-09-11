@@ -1,0 +1,63 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ---------- 地理空间中间产物 ----------
+*.aux.xml
+*.ovr
+*.tfw
+*.qml
+*.gdbtable-journal
+*.lock
+
+# ---------- 数据（严禁入库，详见 data/README.md） ----------
+data/raw/**
+data/interim/**
+data/processed/**
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+*.tif
+*.tiff
+*.img
+*.nc
+*.hdf
+*.h5
+*.grd
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.gpkg
+*.las
+*.laz
+!assets/**/*.shp
+
+# ---------- 成果与临时文件 ----------
+outputs/
+figures/*.png
+figures/*.pdf
+!figures/.gitkeep
+*.log
+tmp/
+scratch/
+
+# ---------- 密钥与环境变量（绝不入库） ----------
+.env
+.env.*
+*.key
+credentials.json
+service-account*.json
+
+# ---------- 编辑器 / 系统 ----------
+.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
