@@ -1,0 +1,94 @@
+# ============================================================
+# 水文地质学科研环境 - conda / mamba 环境文件（本地推荐路线）
+# 用法：
+#   mamba env create -f environment.yml
+#   mamba activate hydro-research
+#   python scripts/test_check.py
+#
+# 为什么用 conda-forge 装 GDAL 体系：
+#   GDAL / GEOS / PROJ 是原生 C/C++ 库，彼此有二进制 ABI 依赖。
+#   conda-forge 的 build 做了统一 pin，能一次装对；
+#   纯 pip 路线在非 Linux 平台经常卡在 GDAL 编译或 PROJ 数据库版本冲突。
+# ============================================================
+
+name: hydro-research
+
+channels:
+  - conda-forge
+
+dependencies:
+  # ---------- 解释器 ----------
+  - python=3.11          # 3.11 是 GDAL/Rasterio 轮子覆盖最完整的版本
+
+  # ---------- 原生地理空间库（务必走 conda） ----------
+  - gdal>=3.8
+  - libgdal
+  - geos
+  - proj
+  - proj-data
+  - hdf5
+  - netcdf4
+
+  # ---------- 科学计算底座 ----------
+  - numpy>=1.26,<3
+  - pandas>=2.2
+  - scipy>=1.13
+  - xarray>=2024.6
+
+  # ---------- 栅格 / 遥感 ----------
+  - rasterio>=1.3.10
+  - rioxarray
+  - rasterstats
+  - rasterio
+
+  # ---------- 矢量 / 坐标 ----------
+  - geopandas>=1.0
+  - shapely>=2.0
+  - pyproj>=3.6
+  - fiona>=1.9
+
+  # ---------- 地形分析 ----------
+  - richdem
+  - whitebox
+
+  # ---------- 制图 ----------
+  - matplotlib>=3.8
+  - seaborn>=0.13
+  - contextily
+  - folium
+
+  # ---------- 工程化 ----------
+  - pyyaml
+  - tqdm
+  - pytest
+  - openpyxl
+  - jupyterlab
+
+  # ---------- pip 独有包（conda 无或版本落后） ----------
+  - pip
+  - pip:
+      - flopy>=3.6.0            # MODFLOW 驱动
+      - pysheds>=0.3.5
+      - hydroeval>=0.0.1        # NSE / KGE / PBIAS
+      - pymannkendall>=1.4.3    # MK 趋势检验
+      - geemap>=0.34.0
+      - earthengine-api>=0.1.400
+      - loguru>=0.7
+      # ---------- 领域增强：水土评价 + 环境经济评价 ----------
+      - pastas>=1.14            # 地下水头响应时序建模
+      - gstools>=1.6            # 地统计/变异函数/克里金
+      - pykrige                # 克里金插值
+      - pyemu>=1.5             # PEST 不确定性
+      - spotpy>=1.6            # GLUE/DREAM 参数优化
+      - pyet                   # FAO-56 蒸散发
+      - scikit-criteria>=0.8   # MCDA 土地适宜性
+      - numpy-financial>=1.0   # NPV/IRR
+      - hydrofunctions         # USGS NWIS 取水
+      - dataretrieval          # USGS 数据拉取
+      - cartopy>=0.23          # 地图投影底图
+      - xskillscore            # 网格预报检验
+      - phydrus                # HYDRUS-1D 包气带
+      - timml                  # 解析元模型
+      - leafmap                # 交互式地图
+      - scikit-learn>=1.5
+      # 重依赖（imod / hydromt / natcap.invest / wflow）见 requirements-domain.txt，按需装
