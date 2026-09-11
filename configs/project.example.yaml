@@ -1,0 +1,155 @@
+# 研究区参数模板
+# ============================================================
+# 复制为 configs/project.yaml 后按实际情况修改。
+# Agent 读取本文件获取研究区基础参数，避免把参数硬编码进脚本。
+# ============================================================
+
+project:
+  name: "示例流域地下水可持续性研究"
+  region: "华北平原某典型流域"
+  # 研究时段
+  period:
+    start: 2005-01-01
+    end: 2024-12-31
+  # 数据频率
+  temporal_resolution: "monthly"     # daily / monthly / yearly
+  timezone: "Asia/Shanghai"
+
+# ---------------- 空间参考 ----------------
+spatial:
+  # 分析用投影（等面积投影适合面积统计）
+  analysis_crs: "EPSG:32650"        # UTM 50N（按研究区经度选择带号）
+  # 存储/交换用地理坐标
+  geographic_crs: "EPSG:4326"
+  # 研究区边界矢量
+  boundary_file: "data/raw/basin_boundary.shp"
+  # 网格分辨率（米）
+  grid_resolution_m: 200
+
+# ---------------- 水文地质参数 ----------------
+hydrogeology:
+  # 含水层结构：自上而下分层
+  aquifer_layers:
+    - name: "潜水含水层"
+      top_elev_m: 120.0
+      bottom_elev_m: 80.0
+      type: "unconfined"
+      k_range_m_per_d: [5.0, 30.0]        # 渗透系数范围
+      sy_range: [0.05, 0.25]              # 给水度
+    - name: "承压含水层"
+      top_elev_m: 80.0
+      bottom_elev_m: 40.0
+      type: "confined"
+      k_range_m_per_d: [1.0, 10.0]
+      ss_range_per_m: [1.0e-5, 1.0e-4]    # 储水率
+  # 水位基准面声明：埋深 or 高程，二者绝不可混用
+  water_level_datum: "depth_below_ground"   # depth_below_ground | elevation
+  # 多年平均降水量（mm）
+  mean_annual_precipitation_mm: 540.0
+
+# ---------------- 观测数据 ----------------
+observations:
+  groundwater_wells:
+    file: "data/raw/groundwater_level.xlsx"
+    sheet: "水位月报"
+    columns:
+      well_id: "井号"
+      date: "观测日期"
+      level: "水位埋深(m)"               # 与 water_level_datum 一致
+      ground_elev: "地面高程(m)"
+      screen_depth: "滤水管深度(m)"
+  river_gauges:
+    file: "data/raw/streamflow.csv"
+    columns:
+      station_id: "station"
+      date: "date"
+      discharge: "Q_m3s"                 # 单位必须写明
+  precipitation:
+    file: "data/raw/precip.csv"
+    columns:
+      station_id: "stn"
+      date: "date"
+      precip: "P_mm"
+
+# ---------------- 遥感数据 ----------------
+remote_sensing:
+  sensors:
+    - name: "Landsat-8/9 OLI"
+      products: ["L2SP"]
+      date_range: [2013-04-01, 2024-12-31]
+      cloud_cover_max: 30
+      indices: ["NDVI", "NDWI", "NDMI"]
+    - name: "Sentinel-2 MSI"
+      products: ["L2A"]
+      date_range: [2015-06-01, 2024-12-31]
+      cloud_cover_max: 20
+      indices: ["NDVI", "MNDWI"]
+  # 时序合成方式：median 抗云，推荐
+  composite_method: "median"
+  # 有效像元占比下限，低于此值剔除该期影像
+  min_valid_pixel_ratio: 0.30
+  # 目标分析网格
+  resample_to_grid: true
+
+# ---------------- 分析方法 ----------------
+analysis:
+  trend:
+    method: "mann_kendall"              # mann_kendall | linear_regression
+    apply_ties_correction: true
+    autocorrelation_correction: "hamed_rao"   # none | prewhitening | hamed_rao
+    slope_estimator: "sens_slope"
+    significance_level: 0.05
+  change_point:
+    methods: ["pettitt", "cumulative_anomaly"]
+    require_physical_evidence: true     # 突变点必须对应物理事件
+  seasonal_decomposition:
+    enabled: true
+    method: "STL"
+    period: 12                          # 月度数据
+    robust: true
+
+# ---------------- 模型配置 ----------------
+model:
+  code: "MODFLOW-6"
+  driver: "flopy"
+  simulation:
+    steady_state_periods: 1
+    transient_years: 20
+    stress_period_length_days: 365
+  solver:
+    complexity: "MODERATE"
+    outer_dvclose: 1.0e-4
+    inner_dvclose: 1.0e-6
+  # 水量均衡残差容限（相对误差）
+  budget_residual_tolerance: 1.0e-3
+  calibration:
+    period: [2005-01-01, 2019-12-31]
+    targets: ["head"]
+    metrics: ["RMSE", "NSE", "PBIAS"]
+    nse_threshold: 0.7
+  validation:
+    period: [2020-01-01, 2024-12-31]    # 必须与 calibration 不重叠
+  sensitivity:
+    parameters: ["k", "sy", "ss", "recharge"]
+    perturbation: 0.5                   # ±50%
+
+# ---------------- 出图配置 ----------------
+figures:
+  dpi: 300
+  formats: ["png", "pdf"]
+  font_candidates:
+    - "Microsoft YaHei"
+    - "SimHei"
+    - "Noto Sans CJK SC"
+    - "Source Han Sans SC"
+  column_width: "double"                # single | double
+  palette:
+    continuous: "viridis"
+    diverging: "RdBu_r"
+    vegetation: "RdYlGn"
+  map:
+    require_north_arrow: true
+    require_scale_bar: true
+    require_graticule: true
+    # 涉中国国界底图必须使用合规数据源
+    china_boundary_source: "自然资源部标准地图"
