@@ -1,0 +1,69 @@
+# ==============================================================================
+# .github/copilot-setup-steps.yml
+#
+# 作用：告诉 GitHub Copilot Coding Agent 如何在沙箱里搭好本仓库的
+#       水文地质 / 遥感 / Python 运行环境，安装依赖、跑测试校验。
+#
+# 为什么必须有这个文件：
+#   Agent 默认会在一个干净的 Ubuntu 沙箱里跑代码。没有这份配方，它会靠猜
+#   来装依赖 —— 典型后果就是 GDAL 装不上、proj 数据版本冲突、netCDF4 编译失败，
+#   最后交给你一段「在它脑子里能跑、在你机器上跑不通」的代码。
+#
+# 校验方式：本文件末尾会执行 scripts/test_check.py，校验不通过则任务判失败，
+#           Agent 会被要求先修环境再写业务代码。
+# ==============================================================================
+
+steps:
+  # ---------- 1. 拉取代码 ----------
+  - name: Checkout repository
+    uses: actions/checkout@v4
+
+  # ---------- 2. 准备 Python ----------
+  - name: Setup Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.11"     # 与 environment.yml 保持一致
+      cache: pip
+
+  # ---------- 3. 安装地理空间原生库（GDAL / GEOS / PROJ） ----------
+  # 这步是本仓库最关键的差异点：地理空间栈是原生 C/C++ 库，
+  # 不先装系统库，pip 装 rasterio / fiona / pyproj 会直接失败。
+  - name: Install system GIS libraries (GDAL / GEOS / PROJ)
+    run: |
+      sudo apt-get update
+      sudo apt-get install -y --no-install-recommends \
+        gdal-bin \
+        libgdal-dev \
+        libgeos-dev \
+        libproj-dev \
+        proj-data \
+        proj-bin \
+        libhdf5-dev \
+        libnetcdf-dev \
+        libspatialindex-dev
+      # 让 pip 编译 GDAL 绑定时能找到头文件
+      GDAL_VERSION=$(gdal-config --version)
+      echo "CPLUS_INCLUDE_PATH=/usr/include/gdal" >> "$GITHUB_ENV"
+      echo "C_INCLUDE_PATH=/usr/include/gdal" >> "$GITHUB_ENV"
+      echo "GDAL_VERSION=$GDAL_VERSION" >> "$GITHUB_ENV"
+      echo "已安装系统 GDAL: $GDAL_VERSION"
+
+  # ---------- 4. 安装 Python 依赖 ----------
+  - name: Install Python dependencies
+    run: |
+      python -m pip install --upgrade pip setuptools wheel
+      pip install -r requirements.txt
+      # 领域增强依赖（重，best-effort；失败不阻断核心流程）
+      pip install -r requirements-domain.txt \
+        || echo "::warning::领域增强依赖(imod/hydromt/natcap.invest 等)部分未装，属可选，核心流程不受影响"
+
+  # ---------- 5. 校验环境（装完必须验，验不过就该停下来修环境） ----------
+  - name: Run environment self-check
+    run: |
+      python -c "import sys; print('Python', sys.version)"
+      python -c "from osgeo import gdal; print('GDAL', gdal.__version__)"
+      python scripts/test_check.py
+
+  # ---------- 6. 单元测试（冒烟用例） ----------
+  - name: Run unit tests
+    run: python -m pytest tests/ -v --tb=short
